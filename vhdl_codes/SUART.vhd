@@ -1,3 +1,5 @@
+-- SPDX-License-Identifier: MIT
+-- Copyright (c) 2023-2026 Dr. Ir. Siavash Ardekani and ETROYL
 ----------------------------------------------------------------------------------
 -- Company: ETROYL
 -- Engineer: Dr. Ir. Siavash Ardekani
