@@ -4,7 +4,7 @@
 
 SuperUART (`SUART`) is a UART core designed to remove the usual limitations of "ordinary" UART IP: the baud rate does not have to be known at synthesis time (the core measures it from a single `0x55` byte sent by the host), received bytes are buffered in a Xilinx FIFO, and the whole core can be re-armed for a new baud rate at run time with a 32-bit soft-reset key.
 
-This repository also contains a ready-made use case: a **UART → I²C bridge** that lets a PC read and write registers of any I²C device (clock generators, RTCs, sensors …) through the same serial link, a Python host script, and a VHDL testbench.
+This repository also contains a ready-made use case: a **UART → I²C bridge** that lets a PC read and write registers of any I²C device (clock generators, RTCs, sensors …) through the same serial link, a Python host utility, and a VHDL testbench.
 
 > The older `README.pdf` documents the *encrypted Vivado IP-core* version of SuperUART (`suart_wrapper_v1_0`). This README documents the **VHDL source code** (`SUART.vhd`, `SUART_IIC_Bridge.vhd`, `I2C_MASTER.vhd`, …) and the test scenarios.
 
@@ -43,7 +43,8 @@ This repository also contains a ready-made use case: a **UART → I²C bridge** 
 
 | Path | Content |
 |---|---|
-| `vhdl_codes/` | VHDL sources: `SUART.vhd`, `SUART_IIC_Bridge.vhd`, `I2C_MASTER.vhd`, `SplitReg8.vhd`, testbench `TB_UART_I2C.vhd`, and the Python host script `2023_11_13_SUART_I2C_SI570.py` |
+| `vhdl_codes/` | VHDL RTL and testbench sources, plus the FIFO Generator IP configuration |
+| `host/` | Python command-line utility for serial register access |
 | `ip/` | Vivado IP packaging of the core |
 | `README.pdf` | Documentation of the encrypted Vivado IP core |
 | `README.md` | This document |
@@ -55,7 +56,7 @@ This repository also contains a ready-made use case: a **UART → I²C bridge** 
 | `I2C_MASTER.vhd` | `I2C_MASTER` | Byte-oriented I²C master with tri-state-split SDA |
 | `SplitReg8.vhd` | `SplitReg8` | Helper that splits an 8-bit vector into 8 single-bit outputs (used to drive an LED from a received byte) |
 | `TB_UART_I2C.vhd` | `TB_UART_I2C` | Testbench for the complete UART→I²C system |
-| `2023_11_13_SUART_I2C_SI570.py` | – | PC-side script (pySerial) |
+| `host/superuart.py` | – | PC-side command-line utility (pySerial) |
 
 ---
 
@@ -453,13 +454,13 @@ Install the dependency:
 python -m pip install pyserial
 ```
 
-**Host utility:** `vhdl_codes/2023_11_13_SUART_I2C_SI570.py`
+**Host utility:** `host/superuart.py`
 
 The script no longer opens a serial port or executes hardware commands when imported. It provides a command-line interface; specify the serial port with `--port` and optionally change the baud rate or timeout. Defaults are `/dev/ttyUSB3`, 9600 baud and a 1-second serial timeout.
 
 ```bash
 # Send the 0x55 auto-baud detection pattern
-python vhdl_codes/2023_11_13_SUART_I2C_SI570.py --port /dev/ttyUSB3 init
+python host/superuart.py --port /dev/ttyUSB3 init
 
 # Read register 0x0A from slave address byte 0xA2
 python vhdl_codes/2023_11_13_SUART_I2C_SI570.py --port /dev/ttyUSB3 read 0xA2 0x0A
@@ -490,7 +491,7 @@ On Linux, make sure your user can access the serial device (commonly by membersh
 
 ```bash
 python -m pip install -r requirements.txt
-python -m compileall -q vhdl_codes tests
+python -m compileall -q host tests
 python -m unittest discover -s tests -v
 ```
 
