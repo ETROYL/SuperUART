@@ -486,6 +486,16 @@ The bridge's command frames remain unchanged:
 
 On Linux, make sure your user can access the serial device (commonly by membership in the `dialout` group). The utility is hardware-dependent; a successful Python syntax check does not validate the FPGA protocol or attached I²C device.
 
+**Run the hardware-independent tests** from the repository root:
+
+```bash
+python -m pip install -r requirements.txt
+python -m compileall -q vhdl_codes tests
+python -m unittest discover -s tests -v
+```
+
+GitHub Actions runs these Python checks on pushes and pull requests. They do not replace VHDL simulation or physical hardware validation.
+
 ---
 
 ## 9. Simulation and test scenarios
