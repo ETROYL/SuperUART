@@ -1,0 +1,2 @@
+# Runtime dependency for the SuperUART host utility
+pyserial>=3.5

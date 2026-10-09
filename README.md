@@ -4,7 +4,7 @@
 
 SuperUART (`SUART`) is a UART core designed to remove the usual limitations of "ordinary" UART IP: the baud rate does not have to be known at synthesis time (the core measures it from a single `0x55` byte sent by the host), received bytes are buffered in a Xilinx FIFO, and the whole core can be re-armed for a new baud rate at run time with a 32-bit soft-reset key.
 
-This repository also contains a ready-made use case: a **UART → I²C bridge** that lets a PC read and write registers of any I²C device (clock generators, RTCs, sensors …) through the same serial link, a Python host script, and a VHDL testbench.
+This repository also contains a ready-made use case: a **UART → I²C bridge** that lets a PC read and write registers of any I²C device (clock generators, RTCs, sensors …) through the same serial link, a Python host utility, and a VHDL testbench.
 
 > The older `README.pdf` documents the *encrypted Vivado IP-core* version of SuperUART (`suart_wrapper_v1_0`). This README documents the **VHDL source code** (`SUART.vhd`, `SUART_IIC_Bridge.vhd`, `I2C_MASTER.vhd`, …) and the test scenarios.
 
@@ -43,7 +43,8 @@ This repository also contains a ready-made use case: a **UART → I²C bridge** 
 
 | Path | Content |
 |---|---|
-| `vhdl_codes/` | VHDL sources: `SUART.vhd`, `SUART_IIC_Bridge.vhd`, `I2C_MASTER.vhd`, `SplitReg8.vhd`, testbench `TB_UART_I2C.vhd`, and the Python host script `2023_11_13_SUART_I2C_SI570.py` |
+| `vhdl_codes/` | VHDL RTL and testbench sources, plus the FIFO Generator IP configuration |
+| `host/` | Python command-line utility for serial register access |
 | `ip/` | Vivado IP packaging of the core |
 | `README.pdf` | Documentation of the encrypted Vivado IP core |
 | `README.md` | This document |
@@ -55,7 +56,7 @@ This repository also contains a ready-made use case: a **UART → I²C bridge** 
 | `I2C_MASTER.vhd` | `I2C_MASTER` | Byte-oriented I²C master with tri-state-split SDA |
 | `SplitReg8.vhd` | `SplitReg8` | Helper that splits an 8-bit vector into 8 single-bit outputs (used to drive an LED from a received byte) |
 | `TB_UART_I2C.vhd` | `TB_UART_I2C` | Testbench for the complete UART→I²C system |
-| `2023_11_13_SUART_I2C_SI570.py` | – | PC-side script (pySerial) |
+| `host/superuart.py` | – | PC-side command-line utility (pySerial) |
 
 ---
 
@@ -445,73 +446,56 @@ Top-level ports of `MAIN_BD1` as used by the testbench: `ext_RSTn`, `ST1_CLK100`
 
 ## 8. Host software (Python)
 
-**Requirements**: Python 3 and [pySerial](https://pyserial.readthedocs.io/) (`pip install pyserial`). On Linux, make sure your user may access the serial device (for example be a member of the `dialout` group).
+**Requirements:** Python 3.10+ and [pySerial](https://pyserial.readthedocs.io/).
 
-**Script**: `2023_11_13_SUART_I2C_SI570.py`
+Install the dependency:
 
-Edit the first lines to match your setup:
-
-```python
-FPGA = serial.Serial('/dev/ttyUSB3', 9600)   # serial port and baud rate
-FPGA.timeout = 1
+```bash
+python -m pip install pyserial
 ```
 
-| Function | What it does |
+**Host utility:** `host/superuart.py`
+
+The script no longer opens a serial port or executes hardware commands when imported. It provides a command-line interface; specify the serial port with `--port` and optionally change the baud rate or timeout. Defaults are `/dev/ttyUSB3`, 9600 baud and a 1-second serial timeout.
+
+```bash
+# Send the 0x55 auto-baud detection pattern
+python host/superuart.py --port /dev/ttyUSB3 init
+
+# Read register 0x0A from slave address byte 0xA2
+python host/superuart.py --port /dev/ttyUSB3 read 0xA2 0x0A
+
+# Write 0x88 to register 0x10
+python host/superuart.py --port /dev/ttyUSB3 write 0xA2 0x10 0x88
+
+# Send the default soft-reset key
+python host/superuart.py --port /dev/ttyUSB3 reset
+```
+
+Run `python host/superuart.py --help` for all options. Values accept decimal notation or `0x`-prefixed hexadecimal notation. The utility validates byte values, reports connection/write errors, uses serial timeouts, and returns a non-zero status when a read/write receives no response before the timeout.
+
+The bridge's command frames remain unchanged:
+
+| Operation | Bytes sent |
 |---|---|
-| `init()` | Sends `0x55` so the SUART can detect the baud rate, then waits 100 ms. |
-| `reset()` | Sends the soft-reset key `76 B1 9D 08`, then waits 100 ms. The SUART returns to "waiting for `0x55`". |
-| `iic_write(slave_add, reg_add, val)` | Sends `A5 B5 C5 D5 slave reg val`, waits 200 ms and prints whatever came back (normally nothing). |
-| `iic_read(slave_add, reg_add)` | Sends `A0 B0 C0 D0 slave reg`, waits 200 ms, returns the received bytes (1 byte expected). |
-| `and_mask(a, b)`, `or_mask(a, b)` | Helpers for read-modify-write on single-byte `bytes` objects. |
+| Auto-baud detection | `55` |
+| Soft reset | `76 B1 9D 08` |
+| I²C read | `A0 B0 C0 D0 slave register` |
+| I²C write | `A5 B5 C5 D5 slave register value` |
 
-As shipped, the script's active part is:
+**Address convention:** the host utility transmits the slave-address byte exactly as entered. For example, `0xA2` is the 8-bit write-form address byte corresponding to 7-bit I²C address `0x51`. Confirm the convention expected by your hardware and target device before connecting it.
 
-```python
-slave_add = 0xA2
-init()
-iic_read(slave_add, 10)    # read register 10 of the device at 0xA2 (7-bit address 0x51)
-FPGA.close()
-exit()
+On Linux, make sure your user can access the serial device (commonly by membership in the `dialout` group). The utility is hardware-dependent; a successful Python syntax check does not validate the FPGA protocol or attached I²C device.
+
+**Run the hardware-independent tests** from the repository root:
+
+```bash
+python -m pip install -r requirements.txt
+python -m compileall -q host tests
+python -m unittest discover -s tests -v
 ```
 
-Everything after `exit()` (a clock-chip programming sequence) is currently **unreachable** and was written for an earlier call signature (`iic_write(reg, val)`, `iic_read(reg)` without a slave address). If you want to reuse it, add the `slave_add` argument to each call and remove the `exit()`. The file name mentions an Si570, but the register numbers in that block (page register 255, 230, 241, 246 …) resemble the Silicon Labs Si5338 programming flow — worth checking against the datasheet of your actual device.
-
-**Minimal standalone example** (a slightly more robust variant using a read timeout instead of fixed sleeps):
-
-```python
-import time
-import serial
-
-ser = serial.Serial('/dev/ttyUSB0', 115200, timeout=1)
-
-def suart_init():
-    ser.write(b'\x55')                      # baud-rate detection pattern
-    time.sleep(0.1)
-
-def suart_soft_reset():
-    ser.write(bytes([0x76, 0xB1, 0x9D, 0x08]))
-    time.sleep(0.1)
-
-def i2c_write(slave8, reg, val):
-    ser.write(bytes([0xA5, 0xB5, 0xC5, 0xD5, slave8, reg, val]))
-
-def i2c_read(slave8, reg):
-    ser.reset_input_buffer()
-    ser.write(bytes([0xA0, 0xB0, 0xC0, 0xD0, slave8, reg]))
-    r = ser.read(1)                         # returns b'' on timeout (e.g. NACK)
-    return r[0] if r else None
-
-suart_init()
-i2c_write(0xA2, 0x10, 0x88)
-print(i2c_read(0xA2, 0x10))
-suart_soft_reset()                          # leave the core ready for the next session
-ser.close()
-```
-
-Tips:
-
-- If the FPGA was left locked by a previous session, the next `init()` is harmless **only if you use the same baud rate** (the `0x55` is then just an ignored data byte). To change the baud rate, call the soft reset first.
-- Send each command frame in one `write()` call and do not interleave frames.
+GitHub Actions runs these Python checks on pushes and pull requests. They do not replace VHDL simulation or physical hardware validation.
 
 ---
 
@@ -658,7 +642,8 @@ The port semantics, baud-rate detection (`0x55`) and default soft-reset key (`0x
 
 ## 12. Authors and license
 
-- Source file headers: **ETROYL**, Dr. Ir. Siavash Ardekani.
-- No license file is currently included in this repository, so default copyright applies. Add a `LICENSE` file (for example MIT, BSD-3-Clause or Apache-2.0) to state the terms under which others may use the code.
+SuperUART is developed by **Dr. Ir. Siavash Ardekani** and **ETROYL**.
+
+The source files include copyright and SPDX license headers. The repository is released under the **MIT License**; see [`LICENSE`](LICENSE) for the complete terms. Contributions are welcome; please read [`CONTRIBUTING.md`](CONTRIBUTING.md) before opening a pull request.
 
 Contributions, bug reports and test results at other baud rates are welcome — please open an issue or pull request.

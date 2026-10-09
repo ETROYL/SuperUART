@@ -1,0 +1,33 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.env
+.pytest_cache/
+.mypy_cache/
+
+# Editor / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+*~
+
+# Vivado generated output (keep source IP/configuration checked in)
+.Xil/
+*.jou
+*.log
+*.str
+*.wdb
+*.vcd
+*.vcd.gz
+*.dcp
+*.bit
+*.ltx
+*.runs/
+*.cache/
+*.hw/
+*.ip_user_files/
+*.sim/
+*.gen/
