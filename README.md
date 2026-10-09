@@ -463,16 +463,16 @@ The script no longer opens a serial port or executes hardware commands when impo
 python host/superuart.py --port /dev/ttyUSB3 init
 
 # Read register 0x0A from slave address byte 0xA2
-python vhdl_codes/2023_11_13_SUART_I2C_SI570.py --port /dev/ttyUSB3 read 0xA2 0x0A
+python host/superuart.py --port /dev/ttyUSB3 read 0xA2 0x0A
 
 # Write 0x88 to register 0x10
-python vhdl_codes/2023_11_13_SUART_I2C_SI570.py --port /dev/ttyUSB3 write 0xA2 0x10 0x88
+python host/superuart.py --port /dev/ttyUSB3 write 0xA2 0x10 0x88
 
 # Send the default soft-reset key
-python vhdl_codes/2023_11_13_SUART_I2C_SI570.py --port /dev/ttyUSB3 reset
+python host/superuart.py --port /dev/ttyUSB3 reset
 ```
 
-Run `python vhdl_codes/2023_11_13_SUART_I2C_SI570.py --help` for all options. Values accept decimal notation or `0x`-prefixed hexadecimal notation. The utility validates byte values, reports connection/write errors, uses serial timeouts, and returns a non-zero status when a read/write receives no response before the timeout.
+Run `python host/superuart.py --help` for all options. Values accept decimal notation or `0x`-prefixed hexadecimal notation. The utility validates byte values, reports connection/write errors, uses serial timeouts, and returns a non-zero status when a read/write receives no response before the timeout.
 
 The bridge's command frames remain unchanged:
 
