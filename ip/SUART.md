@@ -74,13 +74,15 @@ There is no transmit FIFO in this version. The caller is responsible for waiting
 
 ## 6. Receiving one byte
 
+The RTL generates a one-clock `rd_en` pulse after detecting a low-to-high transition on `Read_RX`. It wires the FIFO's `valid` output directly to `RX_Data_Valid`. The RTL port comment describes `RX_Data_Valid` as an indication to use before requesting a read, so the exact sequence depends on the generated FIFO's read mode and latency.
+
 1. Wait until `BUFF_EMPTY = '0'`.
-2. Ensure `Read_RX` is low, then assert it high to request a FIFO read.
-3. Wait for `RX_Data_Valid = '1'`.
-4. Sample `RX_DATA[7:0]`.
+2. Check the generated FIFO configuration to determine when `RX_Data_Valid` asserts relative to `rd_en`.
+3. Use the matching protocol: in a mode where `valid` indicates the current output word, wait for `RX_Data_Valid = '1'` before pulsing `Read_RX`; in a mode where `valid` follows a read request, pulse `Read_RX` first and wait for `RX_Data_Valid` before sampling.
+4. Sample `RX_DATA[7:0]` at the point specified by that FIFO mode.
 5. Return `Read_RX` low before requesting another byte.
 
-Hold control levels long enough to be sampled by `CLK`. Check the FIFO Generator's configured read mode and timing against this handshake.
+**Important:** Do not assume the read handshake until the generated FIFO configuration has been checked against this interface.
 
 ## 7. Required Vivado FIFO IP
 
