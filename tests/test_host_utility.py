@@ -12,8 +12,8 @@ from unittest.mock import patch
 
 SCRIPT = (
     Path(__file__).resolve().parents[1]
-    / "vhdl_codes"
-    / "2023_11_13_SUART_I2C_SI570.py"
+    / "host"
+    / "superuart.py"
 )
 SPEC = importlib.util.spec_from_file_location("superuart_host", SCRIPT)
 HOST = importlib.util.module_from_spec(SPEC)
