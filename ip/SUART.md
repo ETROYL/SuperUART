@@ -18,11 +18,7 @@ The original project notes report successful tests from 300 baud to 1,843,200 ba
 
 ## 2. Clock and baud rate
 
-The documented design constraint is a main clock frequency of at least four times the target baud rate:
-
-`CLK frequency ≥ 4 × baud rate`
-
-For example, a 100 MHz clock gives a theoretical 25 Mbaud limit under this rule. This is not a guarantee of reliable operation at that rate: baud-period quantisation, timing closure, and the surrounding hardware can reduce the usable range. Use a higher clock-to-baud ratio where practical and validate the intended operating point in hardware.
+The legacy project notes suggest keeping the main clock at least four times faster than the target baud rate (for example, 100 MHz for up to 25 Mbaud). This is a design guideline from the original notes, **not a limit enforced by the RTL**. The core measures the training-byte bit period in clock cycles, and counter range, measurement quantisation, timing closure, and integration affect the usable range. Use a comfortably higher clock-to-baud ratio where practical and validate the intended operating point in simulation and hardware.
 
 ## 3. Entity interface
 
@@ -96,7 +92,7 @@ The RTL expects these ports: `clk`, `srst`, `din[7:0]`, `wr_en`, `rd_en`, `dout[
 - Clock: common clock driven by `CLK`.
 - Reset: synchronous reset input `srst`.
 - Enable the `wr_ack` and `valid` flags.
-- Select a read mode compatible with the RTL's read-request/valid handshake.
+- Select a read mode compatible with the RTL's one-cycle read-enable pulse and the FIFO `valid` output. The core wires `valid` directly to `RX_Data_Valid`; verify the generated IP's latency and timing before relying on the sample handshake above.
 - Choose FIFO depth based on the maximum burst of incoming bytes and how long downstream logic may take to consume them.
 
 FIFO Generator settings and generated port lists can vary by Vivado/IP version. Verify the generated component interface before building the design.
